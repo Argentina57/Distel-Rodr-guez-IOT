@@ -3,149 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TP control con IOT (Distel) y (Rodríguez).</title>
+<title>TP control con IOT (Distel) y (Rodríguez)</title>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #edf2f7;
-  color: #243247;
-}
-header {
-  background: #142b45;
-  color: white;
-  text-align: center;
-  padding: 28px 15px;
-}
-header h1 { font-size: 26px; margin: 0; }
-.container {
-  max-width: 650px;
-  margin: 30px auto;
-  padding: 20px;
-}
-.card {
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px #00000012;
-  text-align: center;
-}
-.temperature {
-  font-size: 55px;
-  color: #e67e22;
-  font-weight: bold;
-  margin: 15px;
-}
-.buttons { display: flex; gap: 15px; }
-button {
-  border: none;
-  padding: 17px;
-  border-radius: 10px;
-  font-size: 18px;
-  font-weight: bold;
-  color: white;
-  cursor: pointer;
-  flex: 1;
-}
-.open { background: #20a66a; }
-.close { background: #e34b4b; }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
-input, select {
-  width: 100%;
-  padding: 12px;
-  margin: 7px 0 15px;
-  border: 1px solid #ccd5df;
-  border-radius: 7px;
-  font-size: 15px;
-}
-.connect { background: #2878c8; width: 100%; }
-.status { font-weight: bold; margin-top: 10px; }
-small { color: #718096; }
-@media(max-width: 450px) {
-  header h1 { font-size: 21px; }
-  .buttons { flex-direction: column; }
-}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#edf2f7;color:#243247}
+header{background:#142b45;color:white;text-align:center;padding:28px 15px}header h1{font-size:26px;margin:0}
+.container{max-width:650px;margin:30px auto;padding:20px}
+.card{background:white;padding:25px;border-radius:15px;margin-bottom:20px;box-shadow:0 4px 12px #00000012;text-align:center}
+.temperature{font-size:55px;color:#e67e22;font-weight:bold;margin:15px}
+.buttons{display:flex;gap:15px}button{border:0;padding:17px;border-radius:10px;font-size:18px;font-weight:bold;color:white;cursor:pointer;flex:1}
+.open{background:#20a66a}.close{background:#e34b4b}button:disabled{opacity:.45;cursor:not-allowed}
+.status{font-weight:bold;margin-top:10px}.connected{color:#16834f}.disconnected{color:#c0392b}
+small{color:#718096}@media(max-width:450px){header h1{font-size:21px}.buttons{flex-direction:column}}
 </style>
 </head>
 <body>
-
-<header>
-  <h1>TP control con IOT (Distel) y (Rodríguez).</h1>
-</header>
-
+<header><h1>TP control con IOT (Distel) y (Rodríguez).</h1></header>
 <div class="container">
-
   <div class="card">
     <h2>TEMPERATURA</h2>
     <div class="temperature" id="temperature">-- °C</div>
-    <small>Lectura recibida por MQTT</small>
+    <small>Lectura recibida desde MQTT: casa/temperatura</small>
   </div>
-
   <div class="card">
-    <h2>Control del Servo</h2>
+    <h2>Control del LED</h2>
     <div class="buttons">
-      <button class="open" id="openBtn" onclick="sendCommand('1')" disabled>
-        ABRIR
-      </button>
-      <button class="close" id="closeBtn" onclick="sendCommand('0')" disabled>
-        CERRAR
-      </button>
+      <button class="open" id="openBtn" onclick="sendCommand('1')" disabled>ENCENDER</button>
+      <button class="close" id="closeBtn" onclick="sendCommand('0')" disabled>APAGAR</button>
     </div>
-    <p id="servoStatus">Servo: sin comando</p>
+    <p id="ledStatus">LED: sin comando</p>
   </div>
-
   <div class="card">
-    <h2>Configuración MQTT</h2>
-
-    <label for="broker">Dirección del broker:</label>
-    <input id="broker" type="text" placeholder="Ejemplo: 192.168.1.100">
-
-    <label for="wsPort">Puerto MQTT TCP:</label>
-    <input type="number" value="1883" disabled>
-
-    <label for="wsPort">Puerto WebSocket:</label>
-    <input id="wsPort" type="number" value="9001">
-
-    <label for="protocol">Protocolo:</label>
-    <select id="protocol">
-      <option value="ws">WebSocket (ws)</option>
-      <option value="wss">WebSocket seguro (wss)</option>
-    </select>
-
-    <label for="tempTopic">Tópico de temperatura:</label>
-    <input id="tempTopic" type="text" placeholder="Escribir tópico">
-
-    <label for="servoTopic">Tópico del servo:</label>
-    <input id="servoTopic" type="text" placeholder="Escribir tópico del servo">
-
-    <button class="connect" onclick="connectMQTT()">CONECTAR AL BROKER</button>
-    <p class="status" id="connectionStatus">Desconectado</p>
+    <h2>Estado de conexión MQTT</h2>
+    <p class="status disconnected" id="connectionStatus">Conectando al broker...</p>
+    <small>test.mosquitto.org · WSS · Puerto 8081</small>
   </div>
 </div>
-
 <script>
+const MQTT_URL = "wss://test.mosquitto.org:8081/mqtt";
+const TEMP_TOPIC = "casa/temperatura";
+const LED_TOPIC = "casa/led";
 let client = null;
 
+const statusEl = document.getElementById("connectionStatus");
+const tempEl = document.getElementById("temperature");
+const openBtn = document.getElementById("openBtn");
+const closeBtn = document.getElementById("closeBtn");
+const ledStatus = document.getElementById("ledStatus");
+
+function setStatus(text, connected) {
+  statusEl.textContent = text;
+  statusEl.className = connected ? "status connected" : "status disconnected";
+  openBtn.disabled = !connected;
+  closeBtn.disabled = !connected;
+}
+
 function connectMQTT() {
-  const broker = document.getElementById("broker").value.trim();
-  const port = document.getElementById("wsPort").value;
-  const protocol = "wss";
-  const tempTopic = document.getElementById("tempTopic").value.trim();
-
-  if (!broker || !port || !tempTopic) {
-    alert("Completa la dirección del broker, el puerto WebSocket y el tópico de temperatura.");
-    return;
-  }
-
-  if (client) client.end(true);
-
-  const url = `${protocol}://${broker}:${port}/mqtt`;
-  document.getElementById("connectionStatus").innerText = "Conectando...";
-
-  client = mqtt.connect(url, {
+  setStatus("Conectando al broker MQTT...", false);
+  client = mqtt.connect(MQTT_URL, {
     clientId: "dashboard_" + Math.random().toString(16).slice(2, 10),
     clean: true,
     connectTimeout: 10000,
@@ -153,57 +68,46 @@ function connectMQTT() {
   });
 
   client.on("connect", function() {
-    document.getElementById("connectionStatus").innerText = "Conectado al broker";
-    client.subscribe(tempTopic, function(err) {
-      if (err) alert("Error al suscribirse al tópico de temperatura");
+    setStatus("Conectado al broker MQTT", true);
+    client.subscribe(TEMP_TOPIC, function(err) {
+      if (err) {
+        console.error("Error al suscribirse:", err);
+        setStatus("Conectado, pero falló la suscripción", true);
+      }
     });
   });
 
   client.on("message", function(topic, message) {
-    if (topic === tempTopic) {
-      document.getElementById("temperature").innerText = message.toString() + " °C";
-    } 
+    if (topic === TEMP_TOPIC) tempEl.textContent = message.toString().trim() + " °C";
   });
 
-  client.on("error", function(error) {
-    document.getElementById("connectionStatus").innerText = "Error de conexión";
-    document.getElementById("openBtn").disabled = true;
-    document.getElementById("closeBtn").disabled = true;
-    console.error(error);
-  });
-
-  client.on("offline", function() {
-    document.getElementById("connectionStatus").innerText = "Desconectado";
-    document.getElementById("openBtn").disabled = true;
-    document.getElementById("closeBtn").disabled = true;
-  });
-
-  client.on("reconnect", function() {
-    document.getElementById("connectionStatus").innerText = "Reconectando...";
+  client.on("reconnect", function() { setStatus("Reconectando al broker...", false); });
+  client.on("offline", function() { setStatus("Desconectado del broker", false); });
+  client.on("close", function() { setStatus("Conexión cerrada", false); });
+  client.on("error", function(err) {
+    console.error("Error MQTT:", err);
+    setStatus("Error de conexión MQTT", false);
   });
 }
 
 function sendCommand(value) {
   if (!client || !client.connected) {
-    alert("No hay conexión con el broker MQTT");
+    setStatus("No hay conexión con el broker", false);
     return;
   }
-
-  const topic = document.getElementById("servoTopic").value.trim();
-  if (!topic) {
-    alert("Ingresa el tópico del servo");
-    return;
-  }
-
-  client.publish(topic, value, { qos: 0 }, function(err) {
+  client.publish(LED_TOPIC, value, { qos: 0 }, function(err) {
     if (err) {
-      alert("Error al enviar el comando");
+      ledStatus.textContent = "No se pudo enviar el comando";
+      console.error("Error al publicar:", err);
       return;
     }
-    document.getElementById("servoStatus").innerText =
-      value === "1" ? "Servo: ABRIR (1)" : "Servo: CERRAR (0)";
+    ledStatus.textContent = value === "1"
+      ? "LED: comando ENCENDER enviado (1)"
+      : "LED: comando APAGAR enviado (0)";
   });
 }
+
+window.addEventListener("load", connectMQTT);
 </script>
 </body>
 </html>
