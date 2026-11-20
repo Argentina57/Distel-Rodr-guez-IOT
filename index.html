@@ -132,7 +132,7 @@ let client = null;
 function connectMQTT() {
   const broker = document.getElementById("broker").value.trim();
   const port = document.getElementById("wsPort").value;
-  const protocol = document.getElementById("protocol").value;
+  const protocol = "wss";
   const tempTopic = document.getElementById("tempTopic").value.trim();
 
   if (!broker || !port || !tempTopic) {
